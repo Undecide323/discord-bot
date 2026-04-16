@@ -17,6 +17,7 @@ const { handleMessageXp, startVoiceTracking, stopVoiceTracking, tickVoiceXp } = 
 const { handleCommand }  = require('./commands');
 const { listenToPurchases } = require('./shop');
 const { checkJoinDayAchievements, checkTimeAchievements } = require('./achievements');
+const express = require('express');
 
 // ── Создать клиент ────────────────────────────────────────────
 const client = new Client({
@@ -314,6 +315,19 @@ if (!token || token.startsWith('TODO')) {
   console.error('❌ DISCORD_TOKEN не задан в .env!');
   process.exit(1);
 }
+
+// ── ПРОСТОЙ HTTP-СЕРВЕР ДЛЯ UPTIMEROBOT ──
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('Bot is alive!');
+});
+
+app.listen(PORT, () => {
+  console.log(`HTTP server running on port ${PORT}`);
+});
 
 client.login(token).catch(e => {
   console.error('❌ Ошибка авторизации бота:', e.message);
