@@ -1,0 +1,45 @@
+# ============================================================
+#  GRAY SQUAD — render.yaml
+#  Кладётся в КОРЕНЬ репозитория discord-bot/
+#  (рядом с package.json и src/)
+# ============================================================
+
+services:
+  - type: worker          # Фоновый процесс (не веб-сервер)
+    name: graysquad-bot
+    runtime: node
+    plan: free            # Поменяйте на "starter" ($7/мес) для 24/7
+    buildCommand: npm install
+    startCommand: npm start
+    branch: main          # Ветка GitHub которую деплоить
+
+    # ── Переменные окружения ──────────────────────────────────
+    # Заполняются вручную в Render Dashboard → Environment
+    # ИЛИ раскомментировать и вставить значения ниже (не рекомендуется для секретов)
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false       # sync:false = вводится вручную в Dashboard
+
+      - key: GUILD_ID
+        sync: false
+
+      - key: AFK_CHANNEL_ID
+        sync: false
+
+      - key: MEMBER_ROLE_ID
+        sync: false
+
+      - key: PUNISHED_ROLE_ID
+        sync: false
+
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+
+      - key: NODE_ENV
+        value: production
