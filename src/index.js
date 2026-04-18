@@ -86,7 +86,7 @@ client.once('ready', async () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// СООБЩЕНИЯ
+// СЛЕШ-КОМАНДЫ
 // ─────────────────────────────────────────────────────────────
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
@@ -105,6 +105,9 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────
+// СООБЩЕНИЯ (префиксные команды !)
+// ─────────────────────────────────────────────────────────────
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.guild || message.guild.id !== process.env.GUILD_ID) return;
@@ -334,28 +337,15 @@ if (!token || token.startsWith('TODO')) {
 }
 
 // ── ПРОСТОЙ HTTP-СЕРВЕР ДЛЯ UPTIMEROBOT ──
-const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
+const httpPort = process.env.PORT || 3000;
+const httpApp = express();
 
-app.get('/', (req, res) => {
+httpApp.get('/', (req, res) => {
   res.send('Bot is alive!');
 });
 
-app.listen(PORT, () => {
-  console.log(`HTTP server running on port ${PORT}`);
-});
-
-const express = require('express');
-const app = express();
-const port = process.env.PORT || 3000;
-
-app.get('/', (req, res) => {
-  res.send('Bot is alive!');
-});
-
-app.listen(port, () => {
-  console.log(`HTTP server running on port ${port}`);
+httpApp.listen(httpPort, () => {
+  console.log(`✅ HTTP сервер запущен на порту ${httpPort}`);
 });
 
 client.login(token).catch(e => {
