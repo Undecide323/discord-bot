@@ -88,7 +88,6 @@ client.once('ready', async () => {
 // ─────────────────────────────────────────────────────────────
 // СООБЩЕНИЯ
 // ─────────────────────────────────────────────────────────────
-<<<<<<< HEAD
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.guildId !== process.env.GUILD_ID) return;
@@ -105,7 +104,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: '❌ Ошибка при выполнении команды', ephemeral: true });
   }
 });
-=======
+
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.guild || message.guild.id !== process.env.GUILD_ID) return;
@@ -113,7 +112,6 @@ client.on('messageCreate', async (message) => {
   const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
   if (!member) return;
 
->>>>>>> 07c6300510ba7853aa11710d8724161d5320cf51
   // Создать профиль если нет
   await getOrCreateUser(member);
 
@@ -348,7 +346,6 @@ app.listen(PORT, () => {
   console.log(`HTTP server running on port ${PORT}`);
 });
 
-<<<<<<< HEAD
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
@@ -361,8 +358,6 @@ app.listen(port, () => {
   console.log(`HTTP server running on port ${port}`);
 });
 
-=======
->>>>>>> 07c6300510ba7853aa11710d8724161d5320cf51
 client.login(token).catch(e => {
   console.error('❌ Ошибка авторизации бота:', e.message);
   process.exit(1);
