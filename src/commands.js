@@ -330,6 +330,7 @@ function isAdmin(member) {
 }
 
 module.exports = { handleCommand };
+<<<<<<< HEAD
 
 
 // ── ОБРАБОТКА СЛЕШ-КОМАНД ─────────────────────────────────────
@@ -405,3 +406,5 @@ async function cmdDailySlash(interaction) {
 }
 
 // ... аналогично оберните остальные команды
+=======
+>>>>>>> 07c6300510ba7853aa11710d8724161d5320cf51
