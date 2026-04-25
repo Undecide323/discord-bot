@@ -342,16 +342,15 @@ const httpApp = express();
 
 // ── CORS — разрешаем запросы с сайта ──────────────────────────
 const ALLOWED_ORIGINS = [
+  'https://graysquad.fun',
+  'https://www.graysquad.fun',
   'https://gray-squad.web.app',
   'https://gray-squad-c667e.web.app',
   'http://localhost:3000',
-  'http://127.0.0.1:5500', // Live Server для локальной разработки
+  'http://127.0.0.1:5500',
 ];
 httpApp.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (ALLOWED_ORIGINS.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
