@@ -339,6 +339,25 @@ if (!token || token.startsWith('TODO')) {
 // ── ПРОСТОЙ HTTP-СЕРВЕР ДЛЯ UPTIMEROBOT ──
 const httpPort = process.env.PORT || 3000;
 const httpApp = express();
+
+// ── CORS — разрешаем запросы с сайта ──────────────────────────
+const ALLOWED_ORIGINS = [
+  'https://gray-squad.web.app',
+  'https://gray-squad-c667e.web.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:5500', // Live Server для локальной разработки
+];
+httpApp.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 httpApp.use(express.json());
 
 httpApp.get('/', (req, res) => {
