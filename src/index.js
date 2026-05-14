@@ -18,7 +18,7 @@ const { handleCommand }  = require('./commands');
 const { listenToPurchases } = require('./shop');
 const { checkJoinDayAchievements, checkTimeAchievements } = require('./achievements');
 const telegram = require('./telegram');
-require('./telegramBot'); // Запускаем Telegram бота с polling
+require('./telegrambot'); // Запускаем Telegram бота с polling
 const express = require('express');
 
 // ── Создать клиент ────────────────────────────────────────────
