@@ -14,7 +14,7 @@ bot.onText(/\/start/, (msg) => {
   telegram.addSubscriber(chatId);
   
   const message = `👋 Привет, ${msg.from.first_name}!\n\n` +
-    `Теперь ты будешь получать уведомления когда <b>Андрій</b> заходит или выходит из голосовых каналов Discord сервера Gray Squad!\n\n` +
+    `Теперь ты будешь получать уведомления когда Undecide заходит или выходит из голосовых каналов Discord сервера Gray Squad!\n\n` +
     `Команды:\n` +
     `/status — статистика подписчиков\n` +
     `/stop — отписаться от уведомлений`;
