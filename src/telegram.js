@@ -1,10 +1,9 @@
 // src/telegram.js — интеграция с Telegram ботом
 
 const TelegramBot = require('node-telegram-bot-api');
-
 const telegramBot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
 
-// Хранилище подписчиков: Map<chatId, { active: boolean }>
+// Хранилище подписчиков: Map<chatId, { join: boolean, leave: boolean, switch: boolean }>
 let subscribers = new Map();
 
 /**
@@ -16,12 +15,19 @@ function loadSubscribers() {
     if (fs.existsSync('subscribers.json')) {
       const raw = JSON.parse(fs.readFileSync('subscribers.json', 'utf8'));
       if (Array.isArray(raw)) {
-        // Новый формат: массив объектов { chatId, active }
-        subscribers = new Map(raw.map(s => [s.chatId, { active: s.active !== false }]));
-      } else if (typeof raw === 'object' && raw !== null) {
-        // Старый формат: массив chatId (без active)
-        const ids = Array.isArray(raw) ? raw : Object.keys(raw).map(Number);
-        subscribers = new Map(ids.map(id => [id, { active: true }]));
+        // Новый формат: массив объектов
+        subscribers = new Map();
+        for (const s of raw) {
+          const chatId = s.chatId;
+          const settings = {
+            join: s.join !== false,
+            leave: s.leave !== false,
+            switch: s.switch !== false,
+          };
+          subscribers.set(chatId, settings);
+        }
+      } else {
+        console.warn('[Telegram] Старый формат subscribers.json, начинаем с чистого');
       }
       console.log(`[Telegram] Загружено ${subscribers.size} подписчиков`);
     }
@@ -36,9 +42,9 @@ function loadSubscribers() {
 function saveSubscribers() {
   try {
     const fs = require('fs');
-    const data = Array.from(subscribers.entries()).map(([chatId, info]) => ({
+    const data = Array.from(subscribers.entries()).map(([chatId, settings]) => ({
       chatId,
-      active: info.active,
+      ...settings,
     }));
     fs.writeFileSync('subscribers.json', JSON.stringify(data));
     console.log(`[Telegram] Сохранено ${subscribers.size} подписчиков`);
@@ -48,12 +54,12 @@ function saveSubscribers() {
 }
 
 /**
- * Добавить или обновить подписчика (по умолчанию active = true)
+ * Добавить нового подписчика (все типы уведомлений включены)
  */
 function addSubscriber(chatId) {
-  subscribers.set(chatId, { active: true });
+  subscribers.set(chatId, { join: true, leave: true, switch: true });
   saveSubscribers();
-  console.log(`[Telegram] Подписчик ${chatId} (активен)`);
+  console.log(`[Telegram] Новый подписчик: ${chatId}`);
 }
 
 /**
@@ -66,21 +72,35 @@ function removeSubscriber(chatId) {
 }
 
 /**
- * Установить статус активности подписчика
+ * Установить значение конкретного флага для подписчика
+ * @param {number} chatId
+ * @param {'join'|'leave'|'switch'} type
+ * @param {boolean} value
  */
-function setSubscriberActive(chatId, active) {
+function setSubscriberSetting(chatId, type, value) {
   if (subscribers.has(chatId)) {
-    subscribers.get(chatId).active = active;
+    subscribers.get(chatId)[type] = value;
     saveSubscribers();
-    console.log(`[Telegram] ${chatId}: active = ${active}`);
+    console.log(`[Telegram] ${chatId}: ${type} = ${value}`);
   }
 }
 
 /**
- * Проверить, активен ли подписчик
+ * Получить настройки подписчика
+ * @param {number} chatId
+ * @returns {{ join: boolean, leave: boolean, switch: boolean } | null}
+ */
+function getSubscriberSettings(chatId) {
+  return subscribers.get(chatId) || null;
+}
+
+/**
+ * Проверить, активен ли подписчик (хотя бы один тип включен)
  */
 function isSubscriberActive(chatId) {
-  return subscribers.has(chatId) && subscribers.get(chatId).active === true;
+  const s = subscribers.get(chatId);
+  if (!s) return false;
+  return s.join || s.leave || s.switch;
 }
 
 /**
@@ -91,90 +111,90 @@ function getSubscriberCount() {
 }
 
 /**
- * Получить количество активных подписчиков
+ * Количество подписчиков, у которых включён указанный тип
+ * @param {'join'|'leave'|'switch'} type
  */
-function getActiveSubscriberCount() {
+function getActiveCountForType(type) {
   let count = 0;
-  for (const info of subscribers.values()) {
-    if (info.active) count++;
+  for (const settings of subscribers.values()) {
+    if (settings[type]) count++;
   }
   return count;
 }
 
 /**
- * Отправить сообщение всем активным подписчикам
+ * Отправить сообщение подписчикам, у которых включён указанный тип
+ * @param {'join'|'leave'|'switch'} type
+ * @param {string} message
  */
-async function sendToAllSubscribers(message) {
-  const activeChatIds = [];
-  for (const [chatId, info] of subscribers.entries()) {
-    if (info.active) activeChatIds.push(chatId);
+async function sendToSubscribersByType(type, message) {
+  const targetIds = [];
+  for (const [chatId, settings] of subscribers.entries()) {
+    if (settings[type]) targetIds.push(chatId);
   }
 
-  if (activeChatIds.length === 0) {
-    console.log('[Telegram] Нет активных подписчиков для отправки');
+  if (targetIds.length === 0) {
+    console.log(`[Telegram] Нет подписчиков для типа '${type}'`);
     return;
   }
 
-  let sent = 0;
-  let failed = 0;
-
-  for (const chatId of activeChatIds) {
+  let sent = 0, failed = 0;
+  for (const chatId of targetIds) {
     try {
       await telegramBot.sendMessage(chatId, message, { parse_mode: 'HTML' });
       sent++;
     } catch (error) {
-      console.error(`[Telegram] Ошибка отправки для ${chatId}:`, error.message);
-      if (error.response && error.response.statusCode === 403) {
+      console.error(`[Telegram] Ошибка отправки ${chatId}:`, error.message);
+      if (error.response?.statusCode === 403) {
         removeSubscriber(chatId);
       }
       failed++;
     }
   }
-
-  console.log(`[Telegram] Отправлено: ${sent}, ошибок: ${failed}`);
+  console.log(`[Telegram] Тип '${type}': отправлено ${sent}, ошибок ${failed}`);
 }
 
-// ── Уведомления для Discord ──
-
+// ── Форматирование времени ──
 function formatDuration(minutes) {
   if (minutes < 60) return `${minutes} мин`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}ч ${mins}мин` : `${hours}ч`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}ч ${m}мин` : `${h}ч`;
 }
 
+// ── Уведомления, вызываемые из Discord ──
 async function notifyVoiceJoin(username, channelName) {
   const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const message = `🔊 <b>${username}</b> зашёл в голосовой канал <b>${channelName}</b>\n⏰ ${time}`;
-  await sendToAllSubscribers(message);
+  await sendToSubscribersByType('join', message);
 }
 
 async function notifyVoiceLeave(username, channelName, durationMinutes) {
   const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const duration = formatDuration(durationMinutes);
   const message = `🔇 <b>${username}</b> вышел из голосового канала <b>${channelName}</b>\n⏱️ Был в канале: ${duration}\n⏰ ${time}`;
-  await sendToAllSubscribers(message);
+  await sendToSubscribersByType('leave', message);
 }
 
 async function notifyVoiceSwitch(username, fromChannel, toChannel) {
   const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const message = `🔄 <b>${username}</b> перешёл из <b>${fromChannel}</b> в <b>${toChannel}</b>\n⏰ ${time}`;
-  await sendToAllSubscribers(message);
+  await sendToSubscribersByType('switch', message);
 }
 
 // Загружаем при старте
 loadSubscribers();
 
 module.exports = {
-  sendToAllSubscribers,
   notifyVoiceJoin,
   notifyVoiceLeave,
   notifyVoiceSwitch,
   addSubscriber,
   removeSubscriber,
-  setSubscriberActive,
+  setSubscriberSetting,
+  getSubscriberSettings,
   isSubscriberActive,
   getSubscriberCount,
-  getActiveSubscriberCount,
-  telegramBot
+  getActiveCountForType,
+  telegramBot,
 };
