@@ -1,5 +1,4 @@
-// src/index.js — Gray Squad Discord Bot
-// Точка входа
+// src/index.js — Gray Squad Discord Bot (без Telegram)
 
 require('dotenv').config();
 
@@ -17,8 +16,6 @@ const { handleMessageXp, startVoiceTracking, stopVoiceTracking, tickVoiceXp } = 
 const { handleCommand }  = require('./commands');
 const { listenToPurchases } = require('./shop');
 const { checkJoinDayAchievements, checkTimeAchievements } = require('./achievements');
-const telegram = require('./telegram');
-require('./telegrambot'); // Запускаем Telegram бота с polling
 const express = require('express');
 
 // ── Создать клиент ────────────────────────────────────────────
@@ -36,9 +33,6 @@ const client = new Client({
 
 // Ссылка на основной сервер (кешируется после ready)
 let mainGuild = null;
-
-// Для отслеживания времени входа в голосовой канал
-const voiceJoinTimes = new Map();
 
 // ─────────────────────────────────────────────────────────────
 // READY
@@ -136,16 +130,13 @@ client.on('messageCreate', async (message) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// ГОЛОСОВЫЕ КАНАЛЫ (с фильтром по TRACKED_DISCORD_ID)
+// ГОЛОСОВЫЕ КАНАЛЫ (чистый Discord, без Telegram)
 // ─────────────────────────────────────────────────────────────
 client.on('voiceStateUpdate', async (oldState, newState) => {
   if (newState.guild.id !== process.env.GUILD_ID) return;
 
   const member = newState.member || oldState.member;
   if (!member || member.user.bot) return;
-
-  // Отслеживаем только указанного пользователя
-  if (member.id !== process.env.TRACKED_DISCORD_ID) return;
 
   const joinedChannel = !oldState.channel && newState.channel;
   const leftChannel   = oldState.channel && !newState.channel;
@@ -154,56 +145,17 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   if (joinedChannel) {
     await getOrCreateUser(member);
     startVoiceTracking(member);
-    
-    // Сохраняем время входа
-    voiceJoinTimes.set(member.id, Date.now());
-    
     console.log(`[🎙️] ${member.user.username} → ${newState.channel.name}`);
-    
-    // Отправляем уведомление всем подписчикам в Telegram
-    await telegram.notifyVoiceJoin(
-      member.user.username,
-      newState.channel.name
-    );
   }
 
   if (leftChannel) {
     stopVoiceTracking(member);
-    
-    // Вычисляем продолжительность
-    const joinTime = voiceJoinTimes.get(member.id);
-    let durationMinutes = 0;
-    if (joinTime) {
-      durationMinutes = Math.floor((Date.now() - joinTime) / 60000);
-      voiceJoinTimes.delete(member.id);
-    }
-    
     console.log(`[🔇] ${member.user.username} ← покинул войс`);
-    
-    // Отправляем уведомление всем подписчикам в Telegram
-    await telegram.notifyVoiceLeave(
-      member.user.username,
-      oldState.channel.name,
-      durationMinutes
-    );
-    
-    // Обновить виджет при изменениях
     await updateVoicePresence(member.guild);
   }
 
   if (switched) {
-    // Обновляем время входа для нового канала
-    voiceJoinTimes.set(member.id, Date.now());
-    
     console.log(`[🔀] ${member.user.username}: ${oldState.channel.name} → ${newState.channel.name}`);
-    
-    // Отправляем уведомление о переключении всем подписчикам
-    await telegram.notifyVoiceSwitch(
-      member.user.username,
-      oldState.channel.name,
-      newState.channel.name
-    );
-    
     await updateVoicePresence(member.guild);
   }
 });
@@ -229,7 +181,6 @@ client.on('guildMemberAdd', async (member) => {
 client.on('guildMemberRemove', async (member) => {
   if (member.guild.id !== process.env.GUILD_ID) return;
   stopVoiceTracking(member);
-  voiceJoinTimes.delete(member.id);
   console.log(`[👋] Участник вышел: ${member.user.username}`);
 });
 
@@ -279,12 +230,9 @@ async function syncAllMembers(guild) {
 // ИНИЦИАЛИЗИРОВАТЬ TRACKING ДЛЯ ТЕХ КТО УЖЕ В ВОЙСЕ
 // ─────────────────────────────────────────────────────────────
 function initVoiceTracking(guild) {
-  const now = Date.now();
   guild.voiceStates.cache.forEach(vs => {
     if (vs.channel && vs.member && !vs.member.user.bot) {
       startVoiceTracking(vs.member);
-      // Сохраняем время входа для тех кто уже в войсе
-      voiceJoinTimes.set(vs.member.id, now);
     }
   });
   console.log('[🎙️] Voice tracking инициализирован');
@@ -391,14 +339,6 @@ const httpPort = process.env.PORT || 3000;
 const httpApp = express();
 
 // ── CORS — разрешаем запросы с сайта ──────────────────────────
-const ALLOWED_ORIGINS = [
-  'https://graysquad.fun',
-  'https://www.graysquad.fun',
-  'https://gray-squad.web.app',
-  'https://gray-squad-c667e.web.app',
-  'http://localhost:3000',
-  'http://127.0.0.1:5500',
-];
 httpApp.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', 'https://graysquad.fun');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -518,6 +458,7 @@ httpApp.listen(httpPort, () => {
   console.log(`✅ HTTP сервер запущен на порту ${httpPort}`);
 });
 
+// ── Запуск Discord-бота ──
 client.login(token).catch(e => {
   console.error('❌ Ошибка авторизации бота:', e.message);
   process.exit(1);
