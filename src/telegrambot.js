@@ -42,5 +42,3 @@ bot.on('polling_error', (error) => {
 });
 
 module.exports = bot;
-
-//
